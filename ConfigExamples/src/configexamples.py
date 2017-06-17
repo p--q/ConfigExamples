@@ -14,8 +14,8 @@ def main(ctx, smgr):
     cp = createProvider(ctx, smgr)
     if checkProvider(cp):
         print("\nStarting examples.")
-        readDataExample(cp)
-#         browseDataExample(cp)
+#         readDataExample(cp)
+        browseDataExample(cp)
 #         updateGroupExample(cp)
 #         resetGroupExample(cp)
         print("\nAll Examples completed.")
@@ -84,39 +84,42 @@ class GridOptions(namedtuple("GridOptions", "visible resolution_x resolution_y s
     def __str__(self):
         return "[ Grid is {0}; resolution = ({1},{2}); subdivision = ({3},{4}) ]"\
             .format("VISIBLE" if self.visible else "HIDDEN", self.resolution_x, self.resolution_y, self.subdivision_x, self.subdivision_y)
+
+
 def browseDataExample(cp):
     try:
         print("\n--- starting example: browse filter configuration ------------------")
         printRegisteredFilters(cp)
     except:
         traceback.print_exc()
-class IconfigurationProcessor:
-    def processValueElement(self, path, values):
-        if isinstance(values, tuple):
-            print("\tValue: {0} = {{{1}}}".format(path, ", ".join(values)))
-        else:
-            print("\tValue: {} = {}".format(path, values))
-    def processStructuralElement(self, path, elem):
-        if hasattr(elem, "getTemplateName") and elem.getTemplateName().endswith("Filter"):
-            print("Filter {} ({})".format(elem.getName(), path))
+def processValueElement(path, values):
+    if isinstance(values, tuple):
+        print("\tValue: {0} = {{{1}}}".format(path, ", ".join(values)))
+    else:
+        print("\tValue: {} = {}".format(path, values))
+def processStructuralElement(elem):
+    if hasattr(elem, "getTemplateName") and elem.getTemplateName().endswith("Filter"):
+        print("Filter {} ({})".format(elem.getName(), elem.getHierarchicalName()))
 def printRegisteredFilters(cp):
     path = "/org.openoffice.TypeDetection.Filter/Filters"
-    browseConfiguration(path, IconfigurationProcessor(), cp)
-def browseConfiguration(path, processor, cp):
+    browseConfiguration(path, cp)
+def browseConfiguration(path, cp):
     ca = createConfigurationView(path, cp)
-    browseElementRecursively(ca, processor)
+    browseElementRecursively(ca)
     ca.dispose()
-def browseElementRecursively(elem, processor):
-    path = elem.getHierarchicalName()
-    processor.processStructuralElement(path, elem)
+def browseElementRecursively(elem):
+    processStructuralElement(elem)
     childnames = elem.getElementNames()
     for childname in childnames:
-        child = elem.getByName(childname)
+        child = elem[childname]
+#         child = elem.getByName(childname)
         if hasattr(child, "getTypes"):
-            browseElementRecursively(child, processor)
+            browseElementRecursively(child)
         else:
             childpath = elem.composeHierarchicalName(childname)
-            processor.processValueElement(childpath, child)
+            processValueElement(childpath, child)
+            
+            
 def updateGroupExample(cp):
     try:
         print("\n--- starting example: update group data --------------")
