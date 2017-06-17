@@ -18,15 +18,11 @@ def main(ctx, smgr):
 #         browseDataExample(cp)
 #         updateGroupExample(cp)
 #         resetGroupExample(cp)
-        
-        
-        
         print("\nAll Examples completed.")
     else:
         print("ERROR: Cannot run examples without ConfigurationProvider.")
 def createProvider(ctx, smgr):
     return smgr.createInstanceWithContext("com.sun.star.configuration.ConfigurationProvider", ctx)
-#     return smgr.createInstanceWithContext("com.sun.star.configuration.DefaultProvider", ctx)
 def checkProvider(cp):
     if cp is None:
         print("No provider available. Cannot access configuration data.")
@@ -49,23 +45,37 @@ def readDataExample(cp):
         options = readGridConfiguration(cp)
         print("Read grid options: {}".format(options))
     except:
-        traceback.print_exc()
+        traceback.print_exc()   
+class Proxy:
+    def __init__(self, obj):
+        self._obj = obj
+    def getNode(self, *args):   
+        delimset = {"/", ":", "."}
+        if len(args)==1:
+            node = self._obj.getHierarchicalPropertyValue(*args) if delimset & set(*args) else self._obj.getPropertyValue(*args) 
+            return Proxy(node) if hasattr(node, "getTypes") else node
+        elif len(args)>1 :
+            nodes = self._obj.getHierarchicalPropertyValues(args) if delimset & set("".join(args)) else self._obj.getHierarchicalPropertyValues(args)
+            return [Proxy(node) if hasattr(node, "getTypes") else node for node in nodes]
+    def __getattr__(self, name):
+        return getattr(self._obj, name)
+    def __setattr__(self, name, value):
+        if name.startswith('_'):
+            super().__setattr__(name, value)
+        else:
+            setattr(self._obj, name, value)
+    def __delattr__(self, name):
+        if name.startswith('_'):
+            super().__delattr__(name)
+        else:
+            delattr(self._obj, name)      
 def readGridConfiguration(cp):
     ca = createConfigurationView("/org.openoffice.Office.Calc/Grid", cp)
-    
-
-    
-    visible = ca.getHierarchicalPropertyValue("Option/VisibleGrid")
-    
-
-#     reso = ca.getHierarchicalPropertyValue("Resolution")
-
-    reso = ca.getPropertyValue("Resolution")
-
-    reso_elems = reso.getHierarchicalPropertyValues(("XAxis/Metric", "YAxis/Metric"))
-    sub = ca.getPropertyValue("Subdivision")
-    sub_elems = sub.getPropertyValues(("XAxis", "YAxis"))
-    return GridOptions(visible, reso_elems[0], reso_elems[1], sub_elems[0], sub_elems[1])    
+    root = Proxy(ca)
+    visible = root.getNode("Option/VisibleGrid")
+    resolution_x, resolution_y = root.getNode("Resolution").getNode("XAxis/Metric", "YAxis/Metric")
+    subdivision_x, subdivision_y = root.getNode("Subdivision").getNode("XAxis", "YAxis")
+    return GridOptions(visible, resolution_x, resolution_y, subdivision_x, subdivision_y)   
 def createConfigurationView(path, cp):
     node = PropertyValue(Name="nodepath", Value=path)
     return cp.createInstanceWithArguments("com.sun.star.configuration.ConfigurationAccess", (node,))
