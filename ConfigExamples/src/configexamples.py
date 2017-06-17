@@ -10,12 +10,13 @@ from collections import namedtuple
 from com.sun.star.uno import RuntimeException
 from com.sun.star.util import XChangesListener
 
+
 def main(ctx, smgr):
     cp = createProvider(ctx, smgr)
     if checkProvider(cp):
         print("\nStarting examples.")
-        readDataExample(cp)
-#         browseDataExample(cp)
+#         readDataExample(cp)
+        browseDataExample(cp)
 #         updateGroupExample(cp)
 #         resetGroupExample(cp)
         print("\nAll Examples completed.")
@@ -39,43 +40,40 @@ def checkProvider(cp):
         print("ERROR: Failure while checking the provider services.")
         traceback.print_exc()
         return False
+    
+    
 def readDataExample(cp):
     try:
         print("\n--- starting example: read grid option settings --------------------")
         options = readGridConfiguration(cp)
         print("Read grid options: {}".format(options))
     except:
-        traceback.print_exc()   
+        traceback.print_exc()
 class Proxy:
     def __init__(self, obj):
         self._obj = obj
-    def getNode(self, *args):   
-        delimset = {"/", ":", "."}
+    def getNode(self, *args):
+        delimset = {"/", ".", ":"}
         if len(args)==1:
-            node = self._obj.getHierarchicalPropertyValue(*args) if delimset & set(*args) else self._obj.getPropertyValue(*args) 
+            node = self._obj.getHierarchicalPropertyValue(*args) if delimset & set(*args) else self._obj.getPropertyValue(*args)
             return Proxy(node) if hasattr(node, "getTypes") else node
-        elif len(args)>1 :
-            nodes = self._obj.getHierarchicalPropertyValues(args) if delimset & set("".join(args)) else self._obj.getHierarchicalPropertyValues(args)
+        elif len(args)>1:
+            nodes = self._obj.getHierarchicalPropertyValues(args) if delimset & set("".join(args)) else self._obj.getPropertyValues(args)
             return [Proxy(node) if hasattr(node, "getTypes") else node for node in nodes]
     def __getattr__(self, name):
         return getattr(self._obj, name)
     def __setattr__(self, name, value):
-        if name.startswith('_'):
-            super().__setattr__(name, value)
-        else:
-            setattr(self._obj, name, value)
+        super().__setattr__(name, value) if name.startswith('_') else setattr(self._obj, name, value)
     def __delattr__(self, name):
-        if name.startswith('_'):
-            super().__delattr__(name)
-        else:
-            delattr(self._obj, name)      
+        super().__delattr__(name) if name.startswith('_') else delattr(self._obj, name)   
 def readGridConfiguration(cp):
     ca = createConfigurationView("/org.openoffice.Office.Calc/Grid", cp)
     root = Proxy(ca)
     visible = root.getNode("Option/VisibleGrid")
     resolution_x, resolution_y = root.getNode("Resolution").getNode("XAxis/Metric", "YAxis/Metric")
     subdivision_x, subdivision_y = root.getNode("Subdivision").getNode("XAxis", "YAxis")
-    return GridOptions(visible, resolution_x, resolution_y, subdivision_x, subdivision_y)   
+    ca.dispose()
+    return GridOptions(visible, resolution_x, resolution_y, subdivision_x, subdivision_y) 
 def createConfigurationView(path, cp):
     node = PropertyValue(Name="nodepath", Value=path)
     return cp.createInstanceWithArguments("com.sun.star.configuration.ConfigurationAccess", (node,))
@@ -84,39 +82,44 @@ class GridOptions(namedtuple("GridOptions", "visible resolution_x resolution_y s
     def __str__(self):
         return "[ Grid is {0}; resolution = ({1},{2}); subdivision = ({3},{4}) ]"\
             .format("VISIBLE" if self.visible else "HIDDEN", self.resolution_x, self.resolution_y, self.subdivision_x, self.subdivision_y)
+
+
 def browseDataExample(cp):
     try:
         print("\n--- starting example: browse filter configuration ------------------")
         printRegisteredFilters(cp)
     except:
         traceback.print_exc()
-class IconfigurationProcessor:
-    def processValueElement(self, path, values):
-        if isinstance(values, tuple):
-            print("\tValue: {0} = {{{1}}}".format(path, ", ".join(values)))
-        else:
-            print("\tValue: {} = {}".format(path, values))
-    def processStructuralElement(self, path, elem):
-        if hasattr(elem, "getTemplateName") and elem.getTemplateName().endswith("Filter"):
-            print("Filter {} ({})".format(elem.getName(), path))
+def processValueElement(path, values):
+    if isinstance(values, tuple):
+        print("\tValue: {0} = {{{1}}}".format(path, ", ".join(values)))
+    else:
+        print("\tValue: {} = {}".format(path, values))
 def printRegisteredFilters(cp):
     path = "/org.openoffice.TypeDetection.Filter/Filters"
-    browseConfiguration(path, IconfigurationProcessor(), cp)
-def browseConfiguration(path, processor, cp):
     ca = createConfigurationView(path, cp)
-    browseElementRecursively(ca, processor)
+    browseElementRecursively(ca)
     ca.dispose()
-def browseElementRecursively(elem, processor):
-    path = elem.getHierarchicalName()
-    processor.processStructuralElement(path, elem)
-    childnames = elem.getElementNames()
-    for childname in childnames:
-        child = elem.getByName(childname)
+def processStructuralElement(ca):
+    subnames = list(reversed(ca.getElementNames()))
+    if hasattr(ca, "getTemplateName") and ca.getTemplateName().endswith("Filter"):
+        print("Filter {} ({})".format(ca.getName(), ca.getHierarchicalName()))
+    return subnames, [ca] * len(subnames) 
+def browseElementRecursively(ca):
+    names, cas = processStructuralElement(ca)
+    while names:
+        name = names.pop()
+        ca = cas.pop()
+        child = ca.getByName(name)
         if hasattr(child, "getTypes"):
-            browseElementRecursively(child, processor)
+            subnames, caa=processStructuralElement(child)
+            names.extend(subnames)
+            cas.extend(caa)
         else:
-            childpath = elem.composeHierarchicalName(childname)
-            processor.processValueElement(childpath, child)
+            childpath = ca.composeHierarchicalName(name)
+            processValueElement(childpath, child)
+            
+            
 def updateGroupExample(cp):
     try:
         print("\n--- starting example: update group data --------------")
