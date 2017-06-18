@@ -90,35 +90,36 @@ def browseDataExample(cp):
         printRegisteredFilters(cp)
     except:
         traceback.print_exc()
-def processValueElement(path, values):
-    if isinstance(values, tuple):
-        print("\tValue: {0} = {{{1}}}".format(path, ", ".join(values)))
-    else:
-        print("\tValue: {} = {}".format(path, values))
 def printRegisteredFilters(cp):
     path = "/org.openoffice.TypeDetection.Filter/Filters"
     ca = createConfigurationView(path, cp)
-    browseElementRecursively(ca)
+    e = Evaluator()
+    e.visit(ca)
     ca.dispose()
-def processStructuralElement(ca):
-    subnames = list(reversed(ca.getElementNames()))
-    if hasattr(ca, "getTemplateName") and ca.getTemplateName().endswith("Filter"):
-        print("Filter {} ({})".format(ca.getName(), ca.getHierarchicalName()))
-    return subnames, [ca] * len(subnames) 
-def browseElementRecursively(ca):
-    names, cas = processStructuralElement(ca)
-    while names:
-        name = names.pop()
-        ca = cas.pop()
-        child = ca.getByName(name)
-        if hasattr(child, "getTypes"):
-            subnames, caa=processStructuralElement(child)
-            names.extend(subnames)
-            cas.extend(caa)
+class NodeVisitor:
+    def visit(self, node):
+        name = "PyUNO" if type(node).__name__=="pyuno" else "Values"
+        self.methname = 'visit_{}'.format(name)
+        meth = getattr(self, self.methname, None)
+        if meth is None:
+            meth = self.generic_visit
+        return meth(node)
+    def generic_visit(self, node):
+        raise RuntimeError('No {} method'.format(self.methname))
+class Evaluator(NodeVisitor):
+    def visit_Values(self, node):
+        if isinstance(node, tuple):
+            print("\tValue: {0} = {{{1}}}".format(self.path, ", ".join(node)))
         else:
-            childpath = ca.composeHierarchicalName(name)
-            processValueElement(childpath, child)
-            
+            print("\tValue: {} = {}".format(self.path, node)) 
+    def visit_PyUNO(self, node):
+        if hasattr(node, "getTemplateName") and node.getTemplateName().endswith("Filter"):
+            print("Filter {} ({})".format(node.getName(), node.getHierarchicalName()))
+        childnames = node.getElementNames()
+        for childname in childnames:
+            self.path = node.composeHierarchicalName(childname)
+            self.visit(node.getByName(childname))   
+
             
 def updateGroupExample(cp):
     try:
