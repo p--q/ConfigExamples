@@ -94,7 +94,8 @@ def printRegisteredFilters(cp):
     path = "/org.openoffice.TypeDetection.Filter/Filters"
     ca = createConfigurationView(path, cp)
     e = Evaluator()
-    e.visit(ca)
+    output = e.visit(ca)
+    print("\n".join(output))
     ca.dispose()
 class NodeVisitor:
     def visit(self, node):
@@ -108,17 +109,22 @@ class NodeVisitor:
         raise RuntimeError('No {} method'.format(self.methname))
 class Evaluator(NodeVisitor):
     def visit_Values(self, node):
+        output = []
         if isinstance(node, tuple):
-            print("\tValue: {0} = {{{1}}}".format(self.path, ", ".join(node)))
+            output.append("\tValue: {0} = {{{1}}}".format(self.path, ", ".join(node)))
         else:
-            print("\tValue: {} = {}".format(self.path, node)) 
+            output.append("\tValue: {} = {}".format(self.path, node)) 
+        return output
     def visit_PyUNO(self, node):
+        output = []
         if hasattr(node, "getTemplateName") and node.getTemplateName().endswith("Filter"):
-            print("Filter {} ({})".format(node.getName(), node.getHierarchicalName()))
+            output.append("Filter {} ({})".format(node.getName(), node.getHierarchicalName()))
         childnames = node.getElementNames()
         for childname in childnames:
             self.path = node.composeHierarchicalName(childname)
-            self.visit(node.getByName(childname))   
+            output.extend(self.visit(node.getByName(childname)))
+        return output   
+        
 
             
 def updateGroupExample(cp):
