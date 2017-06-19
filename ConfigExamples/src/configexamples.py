@@ -9,7 +9,7 @@ from com.sun.star.beans import PropertyValue
 from collections import namedtuple
 from com.sun.star.uno import RuntimeException
 from com.sun.star.util import XChangesListener
-
+import types
 
 def main(ctx, smgr):
     cp = createProvider(ctx, smgr)
@@ -97,8 +97,26 @@ def printRegisteredFilters(cp):
     output = e.visit(ca)
     print("\n".join(output))
     ca.dispose()
+class Visit:
+    def __init__(self, node):
+        self.node = node   
 class NodeVisitor:
     def visit(self, node):
+        stack = [Visit(node)]
+        last_result = []
+        while stack:
+            try:
+                last = stack[-1]
+                if isinstance(last, types.GeneratorType):
+                    stack.append(next(last))
+                elif isinstance(last, Visit):
+                    stack.append(self._visit(stack.pop().node))
+                else:
+                    last_result.append(stack.pop())
+            except StopIteration:
+                stack.pop()
+        return last_result
+    def _visit(self, node):
         name = "PyUNO" if type(node).__name__=="pyuno" else "Values"
         self.methname = 'visit_{}'.format(name)
         meth = getattr(self, self.methname, None)
@@ -109,22 +127,17 @@ class NodeVisitor:
         raise RuntimeError('No {} method'.format(self.methname))
 class Evaluator(NodeVisitor):
     def visit_Values(self, node):
-        output = []
         if isinstance(node, tuple):
-            output.append("\tValue: {0} = {{{1}}}".format(self.path, ", ".join(node)))
+            yield "\tValue: {0} = {{{1}}}".format(self.path, ", ".join(node))
         else:
-            output.append("\tValue: {} = {}".format(self.path, node)) 
-        return output
+            yield "\tValue: {} = {}".format(self.path, node)
     def visit_PyUNO(self, node):
-        output = []
         if hasattr(node, "getTemplateName") and node.getTemplateName().endswith("Filter"):
-            output.append("Filter {} ({})".format(node.getName(), node.getHierarchicalName()))
+            yield "Filter {} ({})".format(node.getName(), node.getHierarchicalName())
         childnames = node.getElementNames()
         for childname in childnames:
             self.path = node.composeHierarchicalName(childname)
-            output.extend(self.visit(node.getByName(childname)))
-        return output   
-        
+            yield Visit(node.getByName(childname))
 
             
 def updateGroupExample(cp):
