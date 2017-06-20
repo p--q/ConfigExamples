@@ -16,8 +16,8 @@ def main(ctx, smgr):
     if checkProvider(cp):
         print("\nStarting examples.")
 #         readDataExample(cp)
-        browseDataExample(cp)
-#         updateGroupExample(cp)
+#         browseDataExample(cp)
+        updateGroupExample(cp)
 #         resetGroupExample(cp)
         print("\nAll Examples completed.")
     else:
@@ -226,6 +226,9 @@ def editGridOptions(cp):
             dialog.informUserOfError(e)        
     cu.removeChangesListener(dialog)    
     cu.dispose()    
+    
+    
+    
 def resetGridConfiguration(cp):
     path = "/org.openoffice.Office.Calc/Grid"
     cu = createUpdatableView(path, cp)
