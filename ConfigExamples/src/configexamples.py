@@ -149,19 +149,19 @@ def updateGroupExample(cp):
         traceback.print_exc()
 def editGridOptions(cp):
     path = "/org.openoffice.Office.Calc/Grid"
-    cu = createUpdatableView(path, cp)
+    viewroot = createUpdatableView(path, cp)
     dialog = GridOptionsEditor()
-    dialog.setModel(cu)
+    dialog.setModel(viewroot)
     listener = dialog.createChangesListener()
-    cu.addChangesListener(listener)
+    viewroot.addChangesListener(listener)
     changeSomeData("{}/Subdivision".format(path), cp)
     if dialog.execute()==GridOptionsEditor.SAVE_SETTINGS:
         try:
-            cu.commitChanges()
+            viewroot.commitChanges()
         except Exception as e:
             dialog.informUserOfError(e)        
-    cu.removeChangesListener(listener)    
-    cu.dispose()                   
+    viewroot.removeChangesListener(listener)    
+    viewroot.dispose()                   
 def createUpdatableView(path, cp):
     node = PropertyValue(Name="nodepath", Value=path)
     return cp.createInstanceWithArguments("com.sun.star.configuration.ConfigurationUpdateAccess", (node,))
