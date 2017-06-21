@@ -150,15 +150,17 @@ def updateGroupExample(cp):
 def editGridOptions(cp):
     path = "/org.openoffice.Office.Calc/Grid"
     cu = createUpdatableView(path, cp)
-    dialog = GridOptionsEditor(cu)
-    cu.addChangesListener(dialog)
+    dialog = GridOptionsEditor()
+    dialog.setModel(cu)
+    listener = dialog.createChangesListener()
+    cu.addChangesListener(listener)
     changeSomeData("{}/Subdivision".format(path), cp)
-    if dialog.execute()==ChangesListener.SAVE_SETTINGS:
+    if dialog.execute()==GridOptionsEditor.SAVE_SETTINGS:
         try:
             cu.commitChanges()
         except Exception as e:
             dialog.informUserOfError(e)        
-    cu.removeChangesListener(dialog)    
+    cu.removeChangesListener(listener)    
     cu.dispose()                   
 def createUpdatableView(path, cp):
     node = PropertyValue(Name="nodepath", Value=path)
@@ -166,7 +168,7 @@ def createUpdatableView(path, cp):
 class GridOptionsEditor:
     CANCELED = 0
     SAVE_SETTINGS = 1
-    def __init__(self, model):
+    def setModel(self, model):
         self.model = model
         self.updateDisplay()    
     def updateDisplay(self):
@@ -203,16 +205,17 @@ class GridOptionsEditor:
             self.model.setHierarchicalPropertyValue(setting, newval)
         except Exception as e:
             self.informUserOfError(e)          
-
-
-
+    def createChangesListener(self):
+        return ChangesListener(self)
 class ChangesListener(unohelper.Base, XChangesListener):       
+    def __init__(self, cast):
+        self.cast = cast
     def changesOccurred(self, event):
         print("GridEditor - Listener received changes event containing {} change(s).".format(len(event.Changes)))
-        self.updateDisplay()
+        self.cast.updateDisplay()
     def disposing(self, event):
         print("GridEditor - Listener received disposed event: releasing model")
-        self.setModel(None)      
+        self.cast.setModel(None)      
 def changeSomeData(path, cp):
     try:
         cu = createUpdatableView(path, cp)
@@ -220,7 +223,7 @@ def changeSomeData(path, cp):
         for itemname in itemnames:
             item = cu.getByName(itemname)
             if isinstance(item, bool):
-                print("Replacing integer value: {}".format(itemname))
+                print("Replacing boolean value: {}".format(itemname))
                 cu.replaceByName(itemname, False if item else True)
             elif isinstance(item, int):
                 item = 9999-item
