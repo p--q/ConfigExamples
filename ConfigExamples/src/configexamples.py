@@ -152,7 +152,10 @@ def editGridOptions(cp):
     model = getUpdatableModel(path, cp)
 #     view = GridOptionsEditorView(model)
     controller = GridOptionsEditor(model)
-    changeSomeData("{}/Subdivision".format(path), cp)
+    controller.changeSomeData(cp)
+    
+    
+#     changeSomeData("{}/Subdivision".format(path), cp)
 #     if controller.execute()==GridOptionsEditor.SAVE_SETTINGS:
 #         try:
 #             model.commitChanges()
@@ -190,27 +193,30 @@ class GridOptionsEditor:
             self.model.setHierarchicalPropertyValue(setting, newval)
         except Exception as e:
             self.informUserOfError(e)      
-def changeSomeData(path, cp):
-    try:
-        model = getUpdatableModel(path, cp)
-        itemnames = model.getElementNames()
-        for itemname in itemnames:
-            item = model.getByName(itemname)
-            if isinstance(item, bool):
-                print("Replacing boolean value: {}".format(itemname))
-                model.replaceByName(itemname, False if item else True)
-            elif isinstance(item, int):
-                item = 9999-item
-                print("Replacing integer value: {}".format(itemname))
-                model.replaceByName(itemname, item)
-        model.commitChanges()
-        model.dispose()
-    except:
-        print("Could not change some data in a different view. An exception occurred:")
-        traceback.print_exc()     
+    def changeSomeData(self, cp):
+        try:
+#             path = "/org.openoffice.Office.Calc/Grid/Subdivision"
+#             node = getUpdatableModel(path, cp)
+            setting = "Subdivision"
+            node = self.model.getHierarchicalPropertyValue(setting)
+            itemnames = node.getElementNames()
+            for itemname in itemnames:
+                item = node.getByName(itemname)
+                if isinstance(item, bool):
+                    print("Replacing boolean value: {}".format(itemname))
+                    node.replaceByName(itemname, False if item else True)
+                elif isinstance(item, int):
+                    item = 9999-item
+                    print("Replacing integer value: {}".format(itemname))
+                    node.replaceByName(itemname, item)
+#             node.commitChanges()
+#             node.dispose()
+        except:
+            print("Could not change some data in a different view. An exception occurred:")
+            traceback.print_exc()     
 
 
-class GridOptionsEditorView(unohelper.Base, XChangesListener):
+class GridOptionsEditorView:
     def __init__(self, model):
         self.model = model
         self.createChangesListener()
@@ -238,24 +244,7 @@ class ChangesListener(unohelper.Base, XChangesListener):
         self.cast.updateView()
     def disposing(self, event):
         print("GridEditor - Listener received disposed event: releasing model")
-# def changeSomeData(path, cp):
-#     try:
-#         cu = getUpdatableModel(path, cp)
-#         itemnames = cu.getElementNames()
-#         for itemname in itemnames:
-#             item = cu.getByName(itemname)
-#             if isinstance(item, bool):
-#                 print("Replacing boolean value: {}".format(itemname))
-#                 cu.replaceByName(itemname, False if item else True)
-#             elif isinstance(item, int):
-#                 item = 9999-item
-#                 print("Replacing integer value: {}".format(itemname))
-#                 cu.replaceByName(itemname, item)
-#         cu.commitChanges()
-#         cu.dispose()
-#     except:
-#         print("Could not change some data in a different view. An exception occurred:")
-#         traceback.print_exc() 
+
 
     
     
