@@ -11,13 +11,14 @@ from com.sun.star.uno import RuntimeException
 from com.sun.star.util import XChangesListener
 import types
 
+
 def main(ctx, smgr):
     cp = createProvider(ctx, smgr)
     if checkProvider(cp):
         print("\nStarting examples.")
 #         readDataExample(cp)
-        browseDataExample(cp)
-#         updateGroupExample(cp)
+#         browseDataExample(cp)
+        updateGroupExample(cp)
 #         resetGroupExample(cp)
         print("\nAll Examples completed.")
     else:
@@ -146,21 +147,30 @@ def updateGroupExample(cp):
         editGridOptions(cp)
     except:
         traceback.print_exc()
+def editGridOptions(cp):
+    path = "/org.openoffice.Office.Calc/Grid"
+    viewroot = createUpdatableView(path, cp)
+    dialog = GridOptionsEditor()
+    dialog.setModel(viewroot)
+    listener = dialog.createChangesListener()
+    viewroot.addChangesListener(listener)
+    changeSomeData("{}/Subdivision".format(path), cp)
+    if dialog.execute()==GridOptionsEditor.SAVE_SETTINGS:
+        try:
+            viewroot.commitChanges()
+        except Exception as e:
+            dialog.informUserOfError(e)        
+    viewroot.removeChangesListener(listener)    
+    viewroot.dispose()                   
 def createUpdatableView(path, cp):
     node = PropertyValue(Name="nodepath", Value=path)
     return cp.createInstanceWithArguments("com.sun.star.configuration.ConfigurationUpdateAccess", (node,))
-class ChangesListener(unohelper.Base, XChangesListener):     
+class GridOptionsEditor:
     CANCELED = 0
     SAVE_SETTINGS = 1
-    def __init__(self, model):
+    def setModel(self, model):
         self.model = model
         self.updateDisplay()    
-    def changesOccurred(self, event):
-        print("GridEditor - Listener received changes event containing {} change(s).".format(len(event.Changes)))
-        self.updateDisplay()
-    def disposing(self, event):
-        print("GridEditor - Listener received disposed event: releasing model")
-        self.setModel(None)  
     def updateDisplay(self):
         if self.model is not None:
             print("Grid options editor: data={}".format(self.readModel()))
@@ -195,6 +205,17 @@ class ChangesListener(unohelper.Base, XChangesListener):
             self.model.setHierarchicalPropertyValue(setting, newval)
         except Exception as e:
             self.informUserOfError(e)          
+    def createChangesListener(self):
+        return ChangesListener(self)
+class ChangesListener(unohelper.Base, XChangesListener):       
+    def __init__(self, cast):
+        self.cast = cast
+    def changesOccurred(self, event):
+        print("GridEditor - Listener received changes event containing {} change(s).".format(len(event.Changes)))
+        self.cast.updateDisplay()
+    def disposing(self, event):
+        print("GridEditor - Listener received disposed event: releasing model")
+        self.cast.setModel(None)      
 def changeSomeData(path, cp):
     try:
         cu = createUpdatableView(path, cp)
@@ -202,7 +223,7 @@ def changeSomeData(path, cp):
         for itemname in itemnames:
             item = cu.getByName(itemname)
             if isinstance(item, bool):
-                print("Replacing integer value: {}".format(itemname))
+                print("Replacing boolean value: {}".format(itemname))
                 cu.replaceByName(itemname, False if item else True)
             elif isinstance(item, int):
                 item = 9999-item
@@ -213,19 +234,10 @@ def changeSomeData(path, cp):
     except:
         print("Could not change some data in a different view. An exception occurred:")
         traceback.print_exc() 
-def editGridOptions(cp):
-    path = "/org.openoffice.Office.Calc/Grid"
-    cu = createUpdatableView(path, cp)
-    dialog = ChangesListener(cu)
-    cu.addChangesListener(dialog)
-    changeSomeData("{}/Subdivision".format(path), cp)
-    if dialog.execute()==ChangesListener.SAVE_SETTINGS:
-        try:
-            cu.commitChanges()
-        except Exception as e:
-            dialog.informUserOfError(e)        
-    cu.removeChangesListener(dialog)    
-    cu.dispose()    
+
+    
+    
+    
 def resetGridConfiguration(cp):
     path = "/org.openoffice.Office.Calc/Grid"
     cu = createUpdatableView(path, cp)
