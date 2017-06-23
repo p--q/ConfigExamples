@@ -149,41 +149,25 @@ def updateGroupExample(cp):
         traceback.print_exc()
 def editGridOptions(cp):
     path = "/org.openoffice.Office.Calc/Grid"
-    viewroot = createUpdatableView(path, cp)
-    dialog = GridOptionsEditor()
-    dialog.setModel(viewroot)
-    listener = dialog.createChangesListener()
-    viewroot.addChangesListener(listener)
+    model = getUpdatableModel(path, cp)
+#     view = GridOptionsEditorView(model)
+    controller = GridOptionsEditor(model)
     changeSomeData("{}/Subdivision".format(path), cp)
-    if dialog.execute()==GridOptionsEditor.SAVE_SETTINGS:
-        try:
-            viewroot.commitChanges()
-        except Exception as e:
-            dialog.informUserOfError(e)        
-    viewroot.removeChangesListener(listener)    
-    viewroot.dispose()                   
-def createUpdatableView(path, cp):
+#     if controller.execute()==GridOptionsEditor.SAVE_SETTINGS:
+#         try:
+#             model.commitChanges()
+#         except Exception as e:
+#             controller.informUserOfError(e)          
+    model.dispose()                   
+def getUpdatableModel(path, cp):
     node = PropertyValue(Name="nodepath", Value=path)
     return cp.createInstanceWithArguments("com.sun.star.configuration.ConfigurationUpdateAccess", (node,))
 class GridOptionsEditor:
     CANCELED = 0
     SAVE_SETTINGS = 1
-    def setModel(self, model):
+    def __init__(self, model):
         self.model = model
-        self.updateDisplay()    
-    def updateDisplay(self):
-        if self.model is not None:
-            print("Grid options editor: data={}".format(self.readModel()))
-        else:
-            print("Grid options editor: no model set")
-    def readModel(self):
-        try:
-            options = "Option/VisibleGrid", "Resolution/XAxis/Metric", "Resolution/YAxis/Metric", "Subdivision/XAxis", "Subdivision/YAxis"
-            values = self.model.getHierarchicalPropertyValues(options)
-            return  GridOptions(*values)
-        except Exception as e:
-            self.informUserOfError(e)
-            return None 
+        self.view = GridOptionsEditorView(model)
     def execute(self):
         try:
             print("-- GridEditor executing --")
@@ -193,7 +177,8 @@ class GridOptionsEditor:
         except Exception as e:
             self.informUserOfError(e)
             return self.CANCELED
-    def informUserOfError(self, e):
+    @staticmethod
+    def informUserOfError(e):
         print("ERROR in GridEditor:")
         traceback.print_exc()
     def toggleVisibility(self):
@@ -204,65 +189,102 @@ class GridOptionsEditor:
             newval = False if oldval else True
             self.model.setHierarchicalPropertyValue(setting, newval)
         except Exception as e:
-            self.informUserOfError(e)          
-    def createChangesListener(self):
-        return ChangesListener(self)
-class ChangesListener(unohelper.Base, XChangesListener):       
-    def __init__(self, cast):
-        self.cast = cast
-    def changesOccurred(self, event):
-        print("GridEditor - Listener received changes event containing {} change(s).".format(len(event.Changes)))
-        self.cast.updateDisplay()
-    def disposing(self, event):
-        print("GridEditor - Listener received disposed event: releasing model")
-        self.cast.setModel(None)      
+            self.informUserOfError(e)      
 def changeSomeData(path, cp):
     try:
-        cu = createUpdatableView(path, cp)
-        itemnames = cu.getElementNames()
+        model = getUpdatableModel(path, cp)
+        itemnames = model.getElementNames()
         for itemname in itemnames:
-            item = cu.getByName(itemname)
+            item = model.getByName(itemname)
             if isinstance(item, bool):
                 print("Replacing boolean value: {}".format(itemname))
-                cu.replaceByName(itemname, False if item else True)
+                model.replaceByName(itemname, False if item else True)
             elif isinstance(item, int):
                 item = 9999-item
                 print("Replacing integer value: {}".format(itemname))
-                cu.replaceByName(itemname, item)
-        cu.commitChanges()
-        cu.dispose()
+                model.replaceByName(itemname, item)
+        model.commitChanges()
+        model.dispose()
     except:
         print("Could not change some data in a different view. An exception occurred:")
-        traceback.print_exc() 
+        traceback.print_exc()     
+
+
+class GridOptionsEditorView(unohelper.Base, XChangesListener):
+    def __init__(self, model):
+        self.model = model
+        self.createChangesListener()
+        self.updateView()    
+    def updateView(self):
+        if self.model is not None:
+            print("Grid options editor: data={}".format(self.readModel()))
+        else:
+            print("Grid options editor: no model set")
+    def readModel(self):
+        try:
+            options = "Option/VisibleGrid", "Resolution/XAxis/Metric", "Resolution/YAxis/Metric", "Subdivision/XAxis", "Subdivision/YAxis"
+            values = self.model.getHierarchicalPropertyValues(options)
+            return  GridOptions(*values)
+        except Exception as e:
+            GridOptionsEditor.informUserOfError(e)
+            return None 
+    def createChangesListener(self):
+        self.model.addChangesListener(ChangesListener(self))
+class ChangesListener(unohelper.Base, XChangesListener):      
+    def __init__(self, cast):
+        self.cast = cast                   
+    def changesOccurred(self, event):
+        print("GridEditor - Listener received changes event containing {} change(s).".format(len(event.Changes)))
+        self.cast.updateView()
+    def disposing(self, event):
+        print("GridEditor - Listener received disposed event: releasing model")
+# def changeSomeData(path, cp):
+#     try:
+#         cu = getUpdatableModel(path, cp)
+#         itemnames = cu.getElementNames()
+#         for itemname in itemnames:
+#             item = cu.getByName(itemname)
+#             if isinstance(item, bool):
+#                 print("Replacing boolean value: {}".format(itemname))
+#                 cu.replaceByName(itemname, False if item else True)
+#             elif isinstance(item, int):
+#                 item = 9999-item
+#                 print("Replacing integer value: {}".format(itemname))
+#                 cu.replaceByName(itemname, item)
+#         cu.commitChanges()
+#         cu.dispose()
+#     except:
+#         print("Could not change some data in a different view. An exception occurred:")
+#         traceback.print_exc() 
 
     
     
     
-def resetGridConfiguration(cp):
-    path = "/org.openoffice.Office.Calc/Grid"
-    cu = createUpdatableView(path, cp)
-    
-    
-    state = cu.getByHierarchicalName("{}/Option".format(path))
-    state.setPropertyToDefault("VisibleGrid")
-    
-    
-    cu.getByHierarchicalName("{}/Option".format(path)).setPropertyToDefault("VisibleGrid")
-    cu.getByHierarchicalName("Resolution/XAxis").setPropertyToDefault("Metric")
-    cu.getByHierarchicalName("Resolution/YAxis").setPropertyToDefault("Metric")
-    cu.getByHierarchicalName("Subdivision").setAllPropertiesToDefault()
-    cu.commitChanges()
-    cu.dispose()
-def resetGroupExample(cp):
-    try:
-        print("\n--- starting example: reset group data -----------------------------")
-        olddata = readGridConfiguration(cp)
-        resetGridConfiguration(cp)
-        newdata = readGridConfiguration(cp)
-        print("Before reset:   user grid options: {}".format(olddata))
-        print("After reset: default grid options: {}".format(newdata))
-    except:
-        traceback.print_exc()     
+# def resetGridConfiguration(cp):
+#     path = "/org.openoffice.Office.Calc/Grid"
+#     cu = createUpdatableView(path, cp)
+#     
+#     
+#     state = cu.getByHierarchicalName("{}/Option".format(path))
+#     state.setPropertyToDefault("VisibleGrid")
+#     
+#     
+#     cu.getByHierarchicalName("{}/Option".format(path)).setPropertyToDefault("VisibleGrid")
+#     cu.getByHierarchicalName("Resolution/XAxis").setPropertyToDefault("Metric")
+#     cu.getByHierarchicalName("Resolution/YAxis").setPropertyToDefault("Metric")
+#     cu.getByHierarchicalName("Subdivision").setAllPropertiesToDefault()
+#     cu.commitChanges()
+#     cu.dispose()
+# def resetGroupExample(cp):
+#     try:
+#         print("\n--- starting example: reset group data -----------------------------")
+#         olddata = readGridConfiguration(cp)
+#         resetGridConfiguration(cp)
+#         newdata = readGridConfiguration(cp)
+#         print("Before reset:   user grid options: {}".format(olddata))
+#         print("After reset: default grid options: {}".format(newdata))
+#     except:
+#         traceback.print_exc()     
     
     
     
