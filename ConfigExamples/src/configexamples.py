@@ -148,23 +148,22 @@ def updateGroupExample(cp):
     except:
         traceback.print_exc()
 def editGridOptions(cp):
+    config = rootCreator(cp)
     path = "/org.openoffice.Office.Calc/Grid"
-    model = getUpdatableModel(path, cp)
-#     view = GridOptionsEditorView(model)
+    model = config(path)
     controller = GridOptionsEditor(model)
-    controller.changeSomeData(cp)
-    
-    
-#     changeSomeData("{}/Subdivision".format(path), cp)
-#     if controller.execute()==GridOptionsEditor.SAVE_SETTINGS:
-#         try:
-#             model.commitChanges()
-#         except Exception as e:
-#             controller.informUserOfError(e)          
-    model.dispose()                   
-def getUpdatableModel(path, cp):
-    node = PropertyValue(Name="nodepath", Value=path)
-    return cp.createInstanceWithArguments("com.sun.star.configuration.ConfigurationUpdateAccess", (node,))
+    controller.changeSomeData(config(path + "/Subdivision"))
+    if controller.execute()==GridOptionsEditor.SAVE_SETTINGS:
+        try:
+            model.commitChanges()
+        except Exception as e:
+            controller.informUserOfError(e)        
+    model.dispose()   
+def rootCreator(cp):
+    def getRootAeccess(path):
+        node = PropertyValue(Name="nodepath", Value=path)
+        return cp.createInstanceWithArguments("com.sun.star.configuration.ConfigurationUpdateAccess", (node,))
+    return getRootAeccess
 class GridOptionsEditor:
     CANCELED = 0
     SAVE_SETTINGS = 1
@@ -193,29 +192,23 @@ class GridOptionsEditor:
             self.model.setHierarchicalPropertyValue(setting, newval)
         except Exception as e:
             self.informUserOfError(e)      
-    def changeSomeData(self, cp):
+    def changeSomeData(self, root):
         try:
-#             path = "/org.openoffice.Office.Calc/Grid/Subdivision"
-#             node = getUpdatableModel(path, cp)
-            setting = "Subdivision"
-            node = self.model.getHierarchicalPropertyValue(setting)
-            itemnames = node.getElementNames()
+            itemnames = root.getElementNames()
             for itemname in itemnames:
-                item = node.getByName(itemname)
+                item = root.getByName(itemname)
                 if isinstance(item, bool):
                     print("Replacing boolean value: {}".format(itemname))
-                    node.replaceByName(itemname, False if item else True)
+                    root.replaceByName(itemname, False if item else True)
                 elif isinstance(item, int):
                     item = 9999-item
                     print("Replacing integer value: {}".format(itemname))
-                    node.replaceByName(itemname, item)
-#             node.commitChanges()
-#             node.dispose()
+                    root.replaceByName(itemname, item)
+            root.commitChanges()
+            root.dispose()
         except:
             print("Could not change some data in a different view. An exception occurred:")
             traceback.print_exc()     
-
-
 class GridOptionsEditorView:
     def __init__(self, model):
         self.model = model
