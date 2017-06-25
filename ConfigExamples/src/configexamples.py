@@ -235,18 +235,26 @@ class ChangesListener(unohelper.Base, XChangesListener):
     def changesOccurred(self, event):
         
         
-        for c in event.Changes:
-            print("Accessor: {}, Element: {}, ReplacedElement: {}".format(c.Accessor, c.Element, c.ReplacedElement))
-
-        
-        
-        print(event.Base.getElementNames())
-#         print(event.Changes[0].Accessor)
-        print(event.Source.getName())
+#         for c in event.Changes:
+#             print("Accessor: {}, Element: {}, ReplacedElement: {}".format(c.Accessor, c.Element, c.ReplacedElement))
+# 
+#         
+#         
+#         print(event.Base.getElementNames())
+# #         print(event.Changes[0].Accessor)
+#         print(event.Source.getName())
 
         print("GridEditor - Listener received changes event containing {} change(s).".format(len(event.Changes)))
         self.cast.updateView()
     def disposing(self, event):
+        
+#         for c in event.Changes:
+#             print("Accessor: {}, Element: {}, ReplacedElement: {}".format(c.Accessor, c.Element, c.ReplacedElement))
+
+        
+#         print(event.Source)
+        print(event)
+        
         print("GridEditor - Listener received disposed event: releasing model")
 
 
