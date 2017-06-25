@@ -193,7 +193,7 @@ class GridOptionsEditor:
         except Exception as e:
             self.informUserOfError(e)      
     def changeSomeData(self, root):
-        try:
+        try:          
             itemnames = root.getElementNames()
             for itemname in itemnames:
                 item = root.getByName(itemname)
@@ -233,41 +233,57 @@ class ChangesListener(unohelper.Base, XChangesListener):
     def __init__(self, cast):
         self.cast = cast                   
     def changesOccurred(self, event):
+        
+        
+        for c in event.Changes:
+            print("Accessor: {}, Element: {}, ReplacedElement: {}".format(c.Accessor, c.Element, c.ReplacedElement))
+
+        
+        
+        print(event.Base.getElementNames())
+#         print(event.Changes[0].Accessor)
+        print(event.Source.getName())
+
         print("GridEditor - Listener received changes event containing {} change(s).".format(len(event.Changes)))
         self.cast.updateView()
     def disposing(self, event):
         print("GridEditor - Listener received disposed event: releasing model")
 
 
+
+
+
+
+
+
+def resetGroupExample(cp):
+    try:
+        print("\n--- starting example: reset group data -----------------------------")
+        olddata = readGridConfiguration(cp)
+        resetGridConfiguration(cp)
+        newdata = readGridConfiguration(cp)
+        print("Before reset:   user grid options: {}".format(olddata))
+        print("After reset: default grid options: {}".format(newdata))
+    except:
+        traceback.print_exc()     
+def resetGridConfiguration(cp):
+    config = rootCreator(cp)
+    path = "/org.openoffice.Office.Calc/Grid"
+    model = config(path)
+    state = model.getByHierarchicalName("{}/Option".format(path))
     
     
-    
-# def resetGridConfiguration(cp):
-#     path = "/org.openoffice.Office.Calc/Grid"
-#     cu = createUpdatableView(path, cp)
-#     
-#     
-#     state = cu.getByHierarchicalName("{}/Option".format(path))
-#     state.setPropertyToDefault("VisibleGrid")
-#     
-#     
-#     cu.getByHierarchicalName("{}/Option".format(path)).setPropertyToDefault("VisibleGrid")
-#     cu.getByHierarchicalName("Resolution/XAxis").setPropertyToDefault("Metric")
-#     cu.getByHierarchicalName("Resolution/YAxis").setPropertyToDefault("Metric")
-#     cu.getByHierarchicalName("Subdivision").setAllPropertiesToDefault()
-#     cu.commitChanges()
-#     cu.dispose()
-# def resetGroupExample(cp):
-#     try:
-#         print("\n--- starting example: reset group data -----------------------------")
-#         olddata = readGridConfiguration(cp)
-#         resetGridConfiguration(cp)
-#         newdata = readGridConfiguration(cp)
-#         print("Before reset:   user grid options: {}".format(olddata))
-#         print("After reset: default grid options: {}".format(newdata))
-#     except:
-#         traceback.print_exc()     
-    
+    state.setPropertyToDefault("VisibleGrid")
+      
+      
+    model.getByHierarchicalName("{}/Option".format(path)).setPropertyToDefault("VisibleGrid")
+    model.getByHierarchicalName("Resolution/XAxis").setPropertyToDefault("Metric")
+    model.getByHierarchicalName("Resolution/YAxis").setPropertyToDefault("Metric")
+    model.getByHierarchicalName("Subdivision").setAllPropertiesToDefault()
+    model.commitChanges()
+    model.dispose()
+
+     
     
     
     
