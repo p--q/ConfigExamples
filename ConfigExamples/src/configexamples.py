@@ -19,7 +19,7 @@ def main(ctx, smgr):
 #         readDataExample(cp)
 #         browseDataExample(cp)
         updateGroupExample(cp)
-#         resetGroupExample(cp)
+        resetGroupExample(cp)
         print("\nAll Examples completed.")
     else:
         print("ERROR: Cannot run examples without ConfigurationProvider.")
@@ -233,35 +233,10 @@ class ChangesListener(unohelper.Base, XChangesListener):
     def __init__(self, cast):
         self.cast = cast                   
     def changesOccurred(self, event):
-        
-        
-#         for c in event.Changes:
-#             print("Accessor: {}, Element: {}, ReplacedElement: {}".format(c.Accessor, c.Element, c.ReplacedElement))
-# 
-#         
-#         
-#         print(event.Base.getElementNames())
-# #         print(event.Changes[0].Accessor)
-#         print(event.Source.getName())
-
         print("GridEditor - Listener received changes event containing {} change(s).".format(len(event.Changes)))
         self.cast.updateView()
-    def disposing(self, event):
-        
-#         for c in event.Changes:
-#             print("Accessor: {}, Element: {}, ReplacedElement: {}".format(c.Accessor, c.Element, c.ReplacedElement))
-
-        
-#         print(event.Source)
-        print(event)
-        
+    def disposing(self, source):
         print("GridEditor - Listener received disposed event: releasing model")
-
-
-
-
-
-
 
 
 def resetGroupExample(cp):
@@ -276,18 +251,26 @@ def resetGroupExample(cp):
         traceback.print_exc()     
 def resetGridConfiguration(cp):
     config = rootCreator(cp)
-    path = "/org.openoffice.Office.Calc/Grid"
+    path = "/org.openoffice.Office.Calc/Grid/Option"
     model = config(path)
-    state = model.getByHierarchicalName("{}/Option".format(path))
+    model.setPropertyToDefault("VisibleGrid")
     
     
-    state.setPropertyToDefault("VisibleGrid")
-      
-      
-    model.getByHierarchicalName("{}/Option".format(path)).setPropertyToDefault("VisibleGrid")
-    model.getByHierarchicalName("Resolution/XAxis").setPropertyToDefault("Metric")
-    model.getByHierarchicalName("Resolution/YAxis").setPropertyToDefault("Metric")
-    model.getByHierarchicalName("Subdivision").setAllPropertiesToDefault()
+    
+    
+#     
+#     path = "/org.openoffice.Office.Calc/Grid"
+#     model = config(path)
+#     state = model.getByHierarchicalName("{}/Option".format(path))
+#     
+#     
+#     state.setPropertyToDefault("VisibleGrid")
+#       
+#       
+#     model.getByHierarchicalName("{}/Option".format(path)).setPropertyToDefault("VisibleGrid")
+#     model.getByHierarchicalName("Resolution/XAxis").setPropertyToDefault("Metric")
+#     model.getByHierarchicalName("Resolution/YAxis").setPropertyToDefault("Metric")
+#     model.getByHierarchicalName("Subdivision").setAllPropertiesToDefault()
     model.commitChanges()
     model.dispose()
 
