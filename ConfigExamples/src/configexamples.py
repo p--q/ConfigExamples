@@ -17,8 +17,8 @@ def main(ctx, smgr):  # ctx: コンポーネントコンテクスト、smgr: サ
     if checkProvider(cp):
         print("\nStarting examples.")
         readDataExample(cp)  # /org.openoffice.Office.Calc/Grid以下の特定の値を取得する例。
-        browseDataExample(cp)
-        updateGroupExample(cp)
+#         browseDataExample(cp)  # /org.openoffice.TypeDetection.Filter/Filters以下の値一覧を出力する例。
+#         updateGroupExample(cp)  # /org.openoffice.Office.Calc/Grid以下の値を変更する例。
 #         resetGroupExample(cp)  # 動きません。
         print("\nAll Examples completed.")
     else:
@@ -30,12 +30,12 @@ def checkProvider(cp):  # ConfigurationProviderの情報を取得。
         print("No provider available. Cannot access configuration data.")
         return False
     try:
-        if not cp.supportsService("com.sun.star.configuration.ConfigurationProvider"):      
+        if not cp.supportsService("com.sun.star.configuration.ConfigurationProvider"):  # com.sun.star.configuration.ConfigurationProviderサービスをサポートしていないとき    
             print("WARNING: The provider is not a 'com.sun.star.configuration.ConfigurationProvider'") 
-        services = cp.getSupportedServiceNames()
-        t = ("a ", str(services).strip("(),"), "") if len(services)==1 else ("", str(services).strip("()"), "s")
-        print("The provider has {}{} service{}.".format(*t))
-        print("Using provider implementation: {}.".format(cp.getImplementationName()))
+        services = cp.getSupportedServiceNames()  # 取得したConfigurationProviderがサポートするサービスを取得。
+        t = ("a ", str(services).strip("(),"), "") if len(services)==1 else ("", str(services).strip("()"), "s")  # 複数形への対応。
+        print("The provider has {}{} service{}.".format(*t))  # 取得したConfigurationProviderがサポートするサービス一覧を出力。
+        print("Using provider implementation: {}.".format(cp.getImplementationName()))  #  ConfigurationProviderの実装名を出力。
         return True
     except RuntimeException:
         print("ERROR: Failure while checking the provider services.")
@@ -43,41 +43,44 @@ def checkProvider(cp):  # ConfigurationProviderの情報を取得。
         return False
     
     
-def readDataExample(cp):
+def readDataExample(cp):  # /org.openoffice.Office.Calc/Grid以下の特定の値を取得する例。
     try:
         print("\n--- starting example: read grid option settings --------------------")
-        options = readGridConfiguration(cp)
+        options = readGridConfiguration(cp)  # namedtupleを受け取る。
         print("Read grid options: {}".format(options))
     except:
         traceback.print_exc()
-class Proxy:
-    def __init__(self, obj):
-        self._obj = obj
-    def getNode(self, *args):
-        delimset = {"/", ".", ":"}
-        if len(args)==1:
-            node = self._obj.getHierarchicalPropertyValue(*args) if delimset & set(*args) else self._obj.getPropertyValue(*args)
-            return Proxy(node) if type(node).__name__=="pyuno" else node
-        elif len(args)>1:
-            nodes = self._obj.getHierarchicalPropertyValues(args) if delimset & set("".join(args)) else self._obj.getPropertyValues(args)
-            return [Proxy(node) if type(node).__name__=="pyuno" else node for node in nodes]
-    def __getattr__(self, name):
-        return getattr(self._obj, name)
-    def __setattr__(self, name, value):
-        super().__setattr__(name, value) if name.startswith('_') else setattr(self._obj, name, value)
-    def __delattr__(self, name):
-        super().__delattr__(name) if name.startswith('_') else delattr(self._obj, name)   
 def readGridConfiguration(cp):
-    ca = createConfigurationView("/org.openoffice.Office.Calc/Grid", cp)
-    root = Proxy(ca)
+    configreader = createConfigReader(cp)
+    root = configreader("/org.openoffice.Office.Calc/Grid")
+    root = Proxy(root)
     visible = root.getNode("Option/VisibleGrid")
     resolution_x, resolution_y = root.getNode("Resolution").getNode("XAxis/Metric", "YAxis/Metric")
     subdivision_x, subdivision_y = root.getNode("Subdivision").getNode("XAxis", "YAxis")
-    ca.dispose()
+    root.dispose()
     return GridOptions(visible, resolution_x, resolution_y, subdivision_x, subdivision_y) 
-def createConfigurationView(path, cp):
-    node = PropertyValue(Name="nodepath", Value=path)
-    return cp.createInstanceWithArguments("com.sun.star.configuration.ConfigurationAccess", (node,))
+def createConfigReader(cp):
+    def getRoot(path):
+        node = PropertyValue(Name="nodepath", Value=path)
+        return cp.createInstanceWithArguments("com.sun.star.configuration.ConfigurationAccess", (node,))
+    return getRoot
+class Proxy:  # Proxyパターンでインスタンスにメソッドを追加する。
+    def __init__(self, obj):  # メソッドを追加するインスタンスを取得。
+        self._obj = obj
+    def getNode(self, *args):  # インスタンスに追加するメソッド。
+        delimset = {"/", ".", ":"}  # パス区切り一覧
+        if len(args)==1:  # 引数の数が1つのとき
+            node = self._obj.getHierarchicalPropertyValue(*args) if delimset & set(*args) else self._obj.getPropertyValue(*args)  # パス区切りの有無でgetHierarchicalPropertyValue()とgetPropertyValue()を使い分ける。
+            return Proxy(node) if type(node).__name__=="pyuno" else node  # nodeがPyUNOオブジェクトのときはProxyクラスのインスタンスを返し、そうでないときはそのまま返す。
+        elif len(args)>1:  # 引数の数が2つ以上のとき
+            nodes = self._obj.getHierarchicalPropertyValues(args) if delimset & set("".join(args)) else self._obj.getPropertyValues(args)  # パス区切りの有無でgetHierarchicalPropertyValues()とgetPropertyValues()を使い分ける。
+            return [Proxy(node) if type(node).__name__=="pyuno" else node for node in nodes]  # 各ノードについてPyUNOオブジェクトのときはProxyクラスのインスタンスを、そうでないときはそのままを要素にしたリストを返す。
+    def __getattr__(self, name):  # Proxyクラス属性にnameが見つからなかったときにnameを引数にして呼び出されます。__setattr__()や __delattr__()が常に呼び出されるのとは対照的です。
+        return getattr(self._obj, name)  # Proxyクラスのインスタンスが取得したインスタンスの属性としてnameを呼び出す。
+    def __setattr__(self, name, value):  # アンダースコアが始まる属性名のときはProxyの属性にvalueを代入し、そうでない時はProxyクラスのインスタンスが取得したインスタンスの属性にvalueを代入する。
+        super().__setattr__(name, value) if name.startswith('_') else setattr(self._obj, name, value)
+    def __delattr__(self, name):  # アンダースコアが始まる属性名のときはProxyの属性を削除し、そうでない時はProxyクラスのインスタンスが取得したインスタンスの属性を削除する。
+        super().__delattr__(name) if name.startswith('_') else delattr(self._obj, name)   
 class GridOptions(namedtuple("GridOptions", "visible resolution_x resolution_y subdivision_x subdivision_y")):
     __slots__ = ()
     def __str__(self):
@@ -160,10 +163,10 @@ def editGridOptions(cp):
             controller.informUserOfError(e)        
     model.dispose()   
 def rootCreator(cp):
-    def getRootAeccess(path):
+    def getRootAccess(path):
         node = PropertyValue(Name="nodepath", Value=path)
         return cp.createInstanceWithArguments("com.sun.star.configuration.ConfigurationUpdateAccess", (node,))
-    return getRootAeccess
+    return getRootAccess
 class GridOptionsEditor:
     CANCELED = 0
     SAVE_SETTINGS = 1
