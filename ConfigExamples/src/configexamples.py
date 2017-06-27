@@ -17,8 +17,8 @@ def main(ctx, smgr):  # ctx: コンポーネントコンテクスト、smgr: サ
     if checkProvider(cp):
         print("\nStarting examples.")
         readDataExample(cp)  # /org.openoffice.Office.Calc/Grid以下の特定の値を取得する例。
-#         browseDataExample(cp)  # /org.openoffice.TypeDetection.Filter/Filters以下の値一覧を出力する例。
-#         updateGroupExample(cp)  # /org.openoffice.Office.Calc/Grid以下の値を変更する例。
+        browseDataExample(cp)  # /org.openoffice.TypeDetection.Filter/Filters以下の値一覧を出力する例。
+        updateGroupExample(cp)  # /org.openoffice.Office.Calc/Grid以下の値を変更する例。
 #         resetGroupExample(cp)  # 動きません。
         print("\nAll Examples completed.")
     else:
@@ -50,17 +50,17 @@ def readDataExample(cp):  # /org.openoffice.Office.Calc/Grid以下の特定の�
         print("Read grid options: {}".format(options))
     except:
         traceback.print_exc()
-def readGridConfiguration(cp):
-    configreader = createConfigReader(cp)
-    root = configreader("/org.openoffice.Office.Calc/Grid")
-    root = Proxy(root)
-    visible = root.getNode("Option/VisibleGrid")
-    resolution_x, resolution_y = root.getNode("Resolution").getNode("XAxis/Metric", "YAxis/Metric")
-    subdivision_x, subdivision_y = root.getNode("Subdivision").getNode("XAxis", "YAxis")
-    root.dispose()
-    return GridOptions(visible, resolution_x, resolution_y, subdivision_x, subdivision_y) 
-def createConfigReader(cp):
-    def getRoot(path):
+def readGridConfiguration(cp):  # 設定ファイルの読み込み
+    configreader = createConfigReader(cp)  # 読み込み専用の関数を取得。
+    root = configreader("/org.openoffice.Office.Calc/Grid")  # 引数のパスで根ノードを取得。
+    root = Proxy(root)  # ノードにgetNodeメソッドを付加。
+    visible = root.getNode("Option/VisibleGrid")  # サブノードOption/VisibleGridの値を取得。
+    resolution_x, resolution_y = root.getNode("Resolution").getNode("XAxis/Metric", "YAxis/Metric")  # サブノードResolutionのサブノードXAxis/MetricとYAxis/Metricの値を取得。
+    subdivision_x, subdivision_y = root.getNode("Subdivision").getNode("XAxis", "YAxis")  # サブノードSubdivisionのサブノードXAxisとYAxisの値を取得。
+    root.dispose()  # ConfigurationAccessサービスのインスタンスを破棄。
+    return GridOptions(visible, resolution_x, resolution_y, subdivision_x, subdivision_y)  # namedtupleを返す。
+def createConfigReader(cp):  # ConfigurationProviderサービスのインスタンスを受け取る高階関数。
+    def getRoot(path):  # ConfigurationAccessサービスのインスタンスを返す関数。
         node = PropertyValue(Name="nodepath", Value=path)
         return cp.createInstanceWithArguments("com.sun.star.configuration.ConfigurationAccess", (node,))
     return getRoot
@@ -81,50 +81,50 @@ class Proxy:  # Proxyパターンでインスタンスにメソッドを追加�
         super().__setattr__(name, value) if name.startswith('_') else setattr(self._obj, name, value)
     def __delattr__(self, name):  # アンダースコアが始まる属性名のときはProxyの属性を削除し、そうでない時はProxyクラスのインスタンスが取得したインスタンスの属性を削除する。
         super().__delattr__(name) if name.startswith('_') else delattr(self._obj, name)   
-class GridOptions(namedtuple("GridOptions", "visible resolution_x resolution_y subdivision_x subdivision_y")):
-    __slots__ = ()
-    def __str__(self):
+class GridOptions(namedtuple("GridOptions", "visible resolution_x resolution_y subdivision_x subdivision_y")):  # namedtupleの__str__()メソッドを上書きする。
+    __slots__ = ()  # インスタンス辞書の作成抑制。
+    def __str__(self):  # 文字列として呼ばれた場合に返す値を設定。
         return "[ Grid is {0}; resolution = ({1},{2}); subdivision = ({3},{4}) ]"\
             .format("VISIBLE" if self.visible else "HIDDEN", self.resolution_x, self.resolution_y, self.subdivision_x, self.subdivision_y)
 
 
-def browseDataExample(cp):
+def browseDataExample(cp):  # /org.openoffice.TypeDetection.Filter/Filters以下の値一覧を出力する例。
     try:
         print("\n--- starting example: browse filter configuration ------------------")
         printRegisteredFilters(cp)
     except:
         traceback.print_exc()
 def printRegisteredFilters(cp):
-    path = "/org.openoffice.TypeDetection.Filter/Filters"
-    ca = createConfigurationView(path, cp)
-    e = Evaluator()
-    output = e.visit(ca)
-    print("\n".join(output))
-    ca.dispose()
-class Visit:
+    configreader = createConfigReader(cp)  # 読み込み専用の関数を取得。
+    root = configreader("/org.openoffice.TypeDetection.Filter/Filters")  # 引数のパスで根ノードを取得。
+    e = Evaluator()  # Visitorパターンをインスタンス化。
+    output = e.visit(root)  # VisitorパターンでCompositeパターンに出力機能を追加。リストを取得。
+    print("\n".join(output))  # リストの要素を改行して出力。
+    root.dispose()  # ConfigurationAccessサービスのインスタンスを破棄。
+class Visit:  # ノードを選別するためのクラス。
     def __init__(self, node):
         self.node = node   
-class NodeVisitor:
+class NodeVisitor:  # ジェネレーター版Vistorパターン
     def visit(self, node):
-        stack = [Visit(node)]
-        last_result = []
-        while stack:
+        stack = [Visit(node)]  # ノードをVisitクラスのインスタンスにする。
+        last_result = []  # 結果を入れるリスト。
+        while stack:  # スタックがある間実行。
             try:
-                last = stack[-1]
-                if isinstance(last, types.GeneratorType):
-                    stack.append(next(last))
-                elif isinstance(last, Visit):
-                    stack.append(self._visit(stack.pop().node))
+                last = stack[-1]  # スタックの最後の要素を取得。
+                if isinstance(last, types.GeneratorType):  # lastがジェネレーターのとき
+                    stack.append(next(last))  # ジェネレーターから次の値を取得。
+                elif isinstance(last, Visit):  # lastがVisitのインスタンスのとき
+                    stack.append(self._visit(stack.pop().node))  # スタックの最後の値を取り出してノードを_visitメソッドに渡した戻り値をスタックに取得。
                 else:
-                    last_result.append(stack.pop())
-            except StopIteration:
-                stack.pop()
-        return last_result
-    def _visit(self, node):
-        name = "PyUNO" if type(node).__name__=="pyuno" else "Values"
+                    last_result.append(stack.pop())  # lastがジェネレーターでもVisitのインスタンスでもないときはstackから取り出してlast_resultの要素に追加する。
+            except StopIteration:  # ジェネレーターから値が取得できなかったとき
+                stack.pop()  # ジェネレーターを捨てる。
+        return last_result  # 結果を取得したリストを返す。
+    def _visit(self, node):  # 各ノードでの処理を振り分ける。
+        name = "PyUNO" if type(node).__name__=="pyuno" else "Values"  # ノードがPyUNOオブジェクトかそうでないかで振り分け。
         self.methname = 'visit_{}'.format(name)
-        meth = getattr(self, self.methname, None)
-        if meth is None:
+        meth = getattr(self, self.methname, None)  # 
+        if meth is None:  # 
             meth = self.generic_visit
         return meth(node)
     def generic_visit(self, node):
