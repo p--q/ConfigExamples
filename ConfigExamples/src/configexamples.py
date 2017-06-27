@@ -12,20 +12,20 @@ from com.sun.star.util import XChangesListener
 import types
 
 
-def main(ctx, smgr):
-    cp = createProvider(ctx, smgr)
+def main(ctx, smgr):  # ctx: コンポーネントコンテクスト、smgr: サービスマネジャー
+    cp = createProvider(ctx, smgr)  # ConfigurationProviderの取得。
     if checkProvider(cp):
         print("\nStarting examples.")
-#         readDataExample(cp)
-#         browseDataExample(cp)
+        readDataExample(cp)  # /org.openoffice.Office.Calc/Grid以下の特定の値を取得する例。
+        browseDataExample(cp)
         updateGroupExample(cp)
-        resetGroupExample(cp)
+#         resetGroupExample(cp)  # 動きません。
         print("\nAll Examples completed.")
     else:
         print("ERROR: Cannot run examples without ConfigurationProvider.")
-def createProvider(ctx, smgr):
+def createProvider(ctx, smgr):  # ConfigurationProviderをインスタンス化。引数なしでインスタンス化しているのでDefaultProviderが返る。
     return smgr.createInstanceWithContext("com.sun.star.configuration.ConfigurationProvider", ctx)
-def checkProvider(cp):
+def checkProvider(cp):  # ConfigurationProviderの情報を取得。
     if cp is None:
         print("No provider available. Cannot access configuration data.")
         return False
@@ -57,10 +57,10 @@ class Proxy:
         delimset = {"/", ".", ":"}
         if len(args)==1:
             node = self._obj.getHierarchicalPropertyValue(*args) if delimset & set(*args) else self._obj.getPropertyValue(*args)
-            return Proxy(node) if hasattr(node, "getTypes") else node
+            return Proxy(node) if type(node).__name__=="pyuno" else node
         elif len(args)>1:
             nodes = self._obj.getHierarchicalPropertyValues(args) if delimset & set("".join(args)) else self._obj.getPropertyValues(args)
-            return [Proxy(node) if hasattr(node, "getTypes") else node for node in nodes]
+            return [Proxy(node) if type(node).__name__=="pyuno" else node for node in nodes]
     def __getattr__(self, name):
         return getattr(self._obj, name)
     def __setattr__(self, name, value):
@@ -253,32 +253,8 @@ def resetGridConfiguration(cp):
     config = rootCreator(cp)
     path = "/org.openoffice.Office.Calc/Grid/Option"
     model = config(path)
-    model.setPropertyToDefault("VisibleGrid")
-    
-    
-    
-    
-#     
-#     path = "/org.openoffice.Office.Calc/Grid"
-#     model = config(path)
-#     state = model.getByHierarchicalName("{}/Option".format(path))
-#     
-#     
-#     state.setPropertyToDefault("VisibleGrid")
-#       
-#       
-#     model.getByHierarchicalName("{}/Option".format(path)).setPropertyToDefault("VisibleGrid")
-#     model.getByHierarchicalName("Resolution/XAxis").setPropertyToDefault("Metric")
-#     model.getByHierarchicalName("Resolution/YAxis").setPropertyToDefault("Metric")
-#     model.getByHierarchicalName("Subdivision").setAllPropertiesToDefault()
-    model.commitChanges()
-    model.dispose()
+    model.setPropertyToDefault("VisibleGrid")  # setPropertyToDefault()メソッドは実装されておらず動きません。
 
-     
-    
-    
-    
-    
 
 # funcの前後でOffice接続の処理
 def connectOffice(func):
