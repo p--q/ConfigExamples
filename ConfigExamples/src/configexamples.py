@@ -122,57 +122,57 @@ class NodeVisitor:  # ジェネレーター版Vistorパターン
         return last_result  # 結果を取得したリストを返す。
     def _visit(self, node):  # 各ノードでの処理を振り分ける。
         name = "PyUNO" if type(node).__name__=="pyuno" else "Values"  # ノードがPyUNOオブジェクトかそうでないかで振り分け。
-        self.methname = 'visit_{}'.format(name)
-        meth = getattr(self, self.methname, None)  # 
-        if meth is None:  # 
-            meth = self.generic_visit
-        return meth(node)
-    def generic_visit(self, node):
+        self.methname = 'visit_{}'.format(name)  # ノードに適用するメソッド名を取得。
+        meth = getattr(self, self.methname, None)  # selfの属性にあるメソッドを取得。メソッドが存在しないときはNoneを返す。
+        if meth is None:  # メッソドが存在しなかったとき
+            meth = self.generic_visit  # generic_visit()メソッドを取得。
+        return meth(node)  # 引数をノードにしてメソッドを返す。
+    def generic_visit(self, node):  # 存在しないメソッドが呼ばれた時に呼ばれるメソッド。
         raise RuntimeError('No {} method'.format(self.methname))
-class Evaluator(NodeVisitor):
-    def visit_Values(self, node):
-        if isinstance(node, tuple):
+class Evaluator(NodeVisitor):  # ノードに適用するメソッドを持つNodeVisitorのサブクラス。これらのメソッドはジェネレーター。
+    def visit_Values(self, node):  # ノードがPyUNOオブジェクト以外の時
+        if isinstance(node, tuple):  # タプルの時
             yield "\tValue: {0} = {{{1}}}".format(self.path, ", ".join(node))
-        else:
+        else:  # タプルでない時
             yield "\tValue: {} = {}".format(self.path, node)
-    def visit_PyUNO(self, node):
+    def visit_PyUNO(self, node):  # ノードがPyUNOオブジェクトのとき
         if hasattr(node, "getTemplateName") and node.getTemplateName().endswith("Filter"):
             yield "Filter {} ({})".format(node.getName(), node.getHierarchicalName())
         childnames = node.getElementNames()
-        for childname in childnames:
+        for childname in childnames:  # サブノードについて
             self.path = node.composeHierarchicalName(childname)
-            yield Visit(node.getByName(childname))
+            yield Visit(node.getByName(childname))  # Evaluatorのメソッドで処理するためにVisitクラスのインスタンスにして返す。
 
             
-def updateGroupExample(cp):
+def updateGroupExample(cp):  # /org.openoffice.Office.Calc/Grid以下の値を変更する例。
     try:
         print("\n--- starting example: update group data --------------")
         editGridOptions(cp)
     except:
         traceback.print_exc()
 def editGridOptions(cp):
-    config = rootCreator(cp)
+    config = createConfigUpdater(cp)  # 読み書き用の関数を取得。
     path = "/org.openoffice.Office.Calc/Grid"
-    model = config(path)
-    controller = GridOptionsEditor(model)
-    controller.changeSomeData(config(path + "/Subdivision"))
-    if controller.execute()==GridOptionsEditor.SAVE_SETTINGS:
+    model = config(path)  # 引数のパスで根ノードをモデルとして取得。
+    controller = GridOptionsEditor(model)  # モデルを引数にしてコントローラを取得。
+    controller.changeSomeData(config(path + "/Subdivision"))  # コントローラでモデルを変更する。
+    if controller.execute()==GridOptionsEditor.SAVE_SETTINGS:  # さらにモデルを変更する。
         try:
-            model.commitChanges()
+            model.commitChanges()  # モデルの変更を書き込む。
         except Exception as e:
             controller.informUserOfError(e)        
-    model.dispose()   
-def rootCreator(cp):
-    def getRootAccess(path):
+    model.dispose()  # モデルを破棄する。
+def createConfigUpdater(cp):
+    def getRoot(path):  # ConfigurationUpdateAccessサービスのインスタンスを返す。
         node = PropertyValue(Name="nodepath", Value=path)
         return cp.createInstanceWithArguments("com.sun.star.configuration.ConfigurationUpdateAccess", (node,))
-    return getRootAccess
-class GridOptionsEditor:
+    return getRoot
+class GridOptionsEditor:  # コントローラ
     CANCELED = 0
     SAVE_SETTINGS = 1
     def __init__(self, model):
-        self.model = model
-        self.view = GridOptionsEditorView(model)
+        self.model = model  # モデルを取得。
+        self.view = GridOptionsEditorView(model)  # ビューを取得
     def execute(self):
         try:
             print("-- GridEditor executing --")
@@ -192,7 +192,7 @@ class GridOptionsEditor:
             print("GridEditor: toggling Visibility")
             oldval = self.model.getHierarchicalPropertyValue(setting)
             newval = False if oldval else True
-            self.model.setHierarchicalPropertyValue(setting, newval)
+            self.model.setHierarchicalPropertyValue(setting, newval)  # この実行後にXChangesListenerが呼び出される。
         except Exception as e:
             self.informUserOfError(e)      
     def changeSomeData(self, root):
@@ -206,8 +206,11 @@ class GridOptionsEditor:
                 elif isinstance(item, int):
                     item = 9999-item
                     print("Replacing integer value: {}".format(itemname))
-                    root.replaceByName(itemname, item)
-            root.commitChanges()
+                    root.setPropertyValue(itemname, item)
+                    
+                    
+#                     root.replaceByName(itemname, item)
+            root.commitChanges()  # この実行後にXChangesListenerが呼び出される。
             root.dispose()
         except:
             print("Could not change some data in a different view. An exception occurred:")
@@ -253,7 +256,7 @@ def resetGroupExample(cp):
     except:
         traceback.print_exc()     
 def resetGridConfiguration(cp):
-    config = rootCreator(cp)
+    config = createConfigUpdater(cp)
     path = "/org.openoffice.Office.Calc/Grid/Option"
     model = config(path)
     model.setPropertyToDefault("VisibleGrid")  # setPropertyToDefault()メソッドは実装されておらず動きません。
