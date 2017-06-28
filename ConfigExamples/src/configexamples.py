@@ -16,10 +16,10 @@ def main(ctx, smgr):  # ctx: コンポーネントコンテクスト、smgr: サ
     cp = createProvider(ctx, smgr)  # ConfigurationProviderの取得。
     if checkProvider(cp):
         print("\nStarting examples.")
-        readDataExample(cp)  # /org.openoffice.Office.Calc/Grid以下の特定の値を取得する例。
-        browseDataExample(cp)  # /org.openoffice.TypeDetection.Filter/Filters以下の値一覧を出力する例。
+#         readDataExample(cp)  # /org.openoffice.Office.Calc/Grid以下の特定の値を取得する例。
+#         browseDataExample(cp)  # /org.openoffice.TypeDetection.Filter/Filters以下の値一覧を出力する例。
         updateGroupExample(cp)  # /org.openoffice.Office.Calc/Grid以下の値を変更する例。
-#         resetGroupExample(cp)  # 動きません。
+        resetGroupExample(cp)  # 動きません。
         print("\nAll Examples completed.")
     else:
         print("ERROR: Cannot run examples without ConfigurationProvider.")
@@ -190,26 +190,23 @@ class GridOptionsEditor:  # コントローラ
         try:
             setting = "Option/VisibleGrid"
             print("GridEditor: toggling Visibility")
-            oldval = self.model.getHierarchicalPropertyValue(setting)
+            oldval = self.model.getHierarchicalPropertyValue(setting)  # getByHierarchicalName()メソッドに置換可能。
             newval = False if oldval else True
-            self.model.setHierarchicalPropertyValue(setting, newval)  # この実行後にXChangesListenerが呼び出される。
+            self.model.setHierarchicalPropertyValue(setting, newval)  # この実行後にXChangesListenerが呼び出される。replaceByHierarchicalName()メソッドに置換可能。
         except Exception as e:
-            self.informUserOfError(e)      
+            self.informUserOfError(e)    
     def changeSomeData(self, root):
         try:          
             itemnames = root.getElementNames()
             for itemname in itemnames:
-                item = root.getByName(itemname)
+                item = root.getByName(itemname)  # getPropertyValue()メソッドで置換可能。
                 if isinstance(item, bool):
                     print("Replacing boolean value: {}".format(itemname))
-                    root.replaceByName(itemname, False if item else True)
+                    root.replaceByName(itemname, False if item else True)  # setPropertyValue()メソッドで置換可能。
                 elif isinstance(item, int):
                     item = 9999-item
                     print("Replacing integer value: {}".format(itemname))
-                    root.setPropertyValue(itemname, item)
-                    
-                    
-#                     root.replaceByName(itemname, item)
+                    root.replaceByName(itemname, item)  # setPropertyValue()メソッドで置換可能。
             root.commitChanges()  # この実行後にXChangesListenerが呼び出される。
             root.dispose()
         except:
