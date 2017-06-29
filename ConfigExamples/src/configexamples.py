@@ -16,10 +16,10 @@ def main(ctx, smgr):  # ctx: コンポーネントコンテクスト、smgr: サ
     cp = createProvider(ctx, smgr)  # ConfigurationProviderの取得。
     if checkProvider(cp):
         print("\nStarting examples.")
-#         readDataExample(cp)  # /org.openoffice.Office.Calc/Grid以下の特定の値を取得する例。
-#         browseDataExample(cp)  # /org.openoffice.TypeDetection.Filter/Filters以下の値一覧を出力する例。
+        readDataExample(cp)  # /org.openoffice.Office.Calc/Grid以下の特定の値を取得する例。
+        browseDataExample(cp)  # /org.openoffice.TypeDetection.Filter/Filters以下の値一覧を出力する例。
         updateGroupExample(cp)  # /org.openoffice.Office.Calc/Grid以下の値を変更する例。
-        resetGroupExample(cp)  # 動きません。
+#         resetGroupExample(cp)  # デフォルト値に戻す例。動きません。
         print("\nAll Examples completed.")
     else:
         print("ERROR: Cannot run examples without ConfigurationProvider.")
@@ -173,7 +173,7 @@ class GridOptionsEditor:  # コントローラ
     def __init__(self, model):
         self.model = model  # モデルを取得。
         self.view = GridOptionsEditorView(model)  # ビューを取得
-    def execute(self):
+    def execute(self):  # 孫ノードの値を変更する例の成否を返す。
         try:
             print("-- GridEditor executing --")
             self.toggleVisibility()
@@ -183,10 +183,10 @@ class GridOptionsEditor:  # コントローラ
             self.informUserOfError(e)
             return self.CANCELED
     @staticmethod
-    def informUserOfError(e):
+    def informUserOfError(e):  # 例外のときに実行するコード。インスタンスに関係なく呼び出すのでスタティックメソッドにしている。
         print("ERROR in GridEditor:")
         traceback.print_exc()
-    def toggleVisibility(self):
+    def toggleVisibility(self): # 孫ノードの値を変更する例
         try:
             setting = "Option/VisibleGrid"
             print("GridEditor: toggling Visibility")
@@ -195,7 +195,7 @@ class GridOptionsEditor:  # コントローラ
             self.model.setHierarchicalPropertyValue(setting, newval)  # この実行後にXChangesListenerが呼び出される。replaceByHierarchicalName()メソッドに置換可能。
         except Exception as e:
             self.informUserOfError(e)    
-    def changeSomeData(self, root):
+    def changeSomeData(self, root):  # 子ノードの値を変更する例。
         try:          
             itemnames = root.getElementNames()
             for itemname in itemnames:
@@ -212,17 +212,17 @@ class GridOptionsEditor:  # コントローラ
         except:
             print("Could not change some data in a different view. An exception occurred:")
             traceback.print_exc()     
-class GridOptionsEditorView:
+class GridOptionsEditorView:  # ビュー
     def __init__(self, model):
-        self.model = model
-        self.createChangesListener()
-        self.updateView()    
+        self.model = model  # モデルを取得。
+        self.createChangesListener()  # モデルにリスナーを付ける。
+        self.updateView()  # ビューを更新。    
     def updateView(self):
         if self.model is not None:
             print("Grid options editor: data={}".format(self.readModel()))
         else:
             print("Grid options editor: no model set")
-    def readModel(self):
+    def readModel(self):  # モデルの情報をnamedtupleに入れて返す。
         try:
             options = "Option/VisibleGrid", "Resolution/XAxis/Metric", "Resolution/YAxis/Metric", "Subdivision/XAxis", "Subdivision/YAxis"
             values = self.model.getHierarchicalPropertyValues(options)
@@ -230,19 +230,19 @@ class GridOptionsEditorView:
         except Exception as e:
             GridOptionsEditor.informUserOfError(e)
             return None 
-    def createChangesListener(self):
+    def createChangesListener(self):  # リスナーをモデルに付ける。
         self.model.addChangesListener(ChangesListener(self))
-class ChangesListener(unohelper.Base, XChangesListener):      
+class ChangesListener(unohelper.Base, XChangesListener):  # モデルに付けるリスナー。      
     def __init__(self, cast):
         self.cast = cast                   
-    def changesOccurred(self, event):
+    def changesOccurred(self, event):  # 子ノードのときはcommitChanges()したとき、孫ノードのときは変更した時点で呼び出される。
         print("GridEditor - Listener received changes event containing {} change(s).".format(len(event.Changes)))
         self.cast.updateView()
-    def disposing(self, source):
+    def disposing(self, source):  # パブリシャでdispose()したあとに呼ばれる。呼ばれるときにパブリシャは消滅済。
         print("GridEditor - Listener received disposed event: releasing model")
 
 
-def resetGroupExample(cp):
+def resetGroupExample(cp):  # デフォルト値に戻す例。UNOIDL未実装のため動かない。
     try:
         print("\n--- starting example: reset group data -----------------------------")
         olddata = readGridConfiguration(cp)
