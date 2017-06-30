@@ -200,7 +200,7 @@ class GridOptionsEditor:  # コントローラ
             itemnames = root.getElementNames()
             for itemname in itemnames:
                 item = root.getByName(itemname)  # getPropertyValue()メソッドで置換可能。
-                if isinstance(item, bool):
+                if isinstance(item, bool):  # boolはintより先に場合分けしないといけない。
                     print("Replacing boolean value: {}".format(itemname))
                     root.replaceByName(itemname, False if item else True)  # setPropertyValue()メソッドで置換可能。
                 elif isinstance(item, int):
